@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Viscosidade e Atomização Virtual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* VOICE: bancada de laboratório de combustíveis, objetiva
+   IDEA: viscosímetro Saybolt com banho termostático + bancada de queimador por pressão
+   PICTURE: banho com tubo de amostra, orifício, frasco de 60 mL e cronômetro; bico atomizador com spray e chama
+   COLOUR and TYPE: aço inox e branco, âmbar dos óleos, laranja da chama; IBM Plex
+   LAYOUT: passos à esquerda, equipamento ao centro, leituras à direita (mesmo padrão do simulador da 2.2) */
+:root{color-scheme:light dark;--bg:light-dark(#f4f5f3,#14181a);--panel:light-dark(#ffffff,#1d2326);--ink:light-dark(#16201f,#e6ebe9);--mute:light-dark(#5b6664,#9aa6a3);--line:light-dark(#d5dad8,#33403f);--ok:#1f7a4d;--fire:#e2611d;--warn:#b3261e;--amber:#b7791f}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif;overflow-x:clip}
+header{padding:18px max(3vw,16px) 0;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:end;justify-content:space-between}
+h1{font-size:clamp(22px,3vw,30px);line-height:1.1;margin:0;font-weight:600}
+header p{margin:4px 0 0;color:var(--mute)}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav button[aria-selected=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button,select,input{font:inherit;font-size:15px;color:var(--ink)}
+button{min-height:40px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.go{background:var(--ok);color:#fff;border-color:var(--ok)}
+button.fire{background:var(--fire);color:#fff;border-color:var(--fire)}
+:focus-visible{outline:3px solid var(--fire);outline-offset:2px}
+select{min-height:40px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);width:100%}
+input[type=range]{width:100%;accent-color:var(--ok)}
+main{padding:14px max(3vw,16px) 28px}
+.lab{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr) minmax(0,340px);gap:14px}
+@media(max-width:1150px){.lab{grid-template-columns:minmax(0,300px) minmax(0,1fr)}.mon{grid-column:1/-1}}
+@media(max-width:700px){.lab{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.steps ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.steps li{border-left:3px solid var(--line);padding:2px 0 4px 10px}
+.steps h3{font-size:14px;margin:0 0 6px;font-weight:600}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.row>*{flex:1 1 auto}
+.small{font-size:13px;color:var(--mute)}
+.mono{font-family:"IBM Plex Mono",monospace}
+.bench{position:relative;aspect-ratio:560/440;max-height:560px;margin:auto}
+.bench svg{width:100%;height:100%;position:absolute;inset:0}
+.msg{margin-top:10px;padding:10px 12px;border-radius:8px;background:light-dark(#eef3f1,#202a2b);font-size:14px;min-height:44px}
+.msg.err{background:light-dark(#fbe9e7,#3a1f1c);color:light-dark(#8a1c14,#ffb4ab)}
+.read{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.read div{background:light-dark(#101818,#0b0f10);color:#7cf2b0;border-radius:8px;padding:8px}
+.read b{display:block;font:500 clamp(17px,2vw,22px)/1.15 "IBM Plex Mono",monospace}
+.read span{font-size:12px;color:#9fb5ad}
+.status{padding:10px 12px;border-radius:8px;font-weight:600;margin-bottom:10px}
+.st-ok{background:light-dark(#e3f3ea,#163325);color:light-dark(#145a37,#8fe0b4)}
+.st-mid{background:light-dark(#fdf1dc,#3a2d12);color:light-dark(#7a4b05,#f3c77a)}
+.st-bad{background:light-dark(#fbe9e7,#3a1f1c);color:light-dark(#8a1c14,#ffb4ab)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{background:var(--panel);font-weight:600}
+th:first-child,td:first-child{text-align:left}
+.ref td,.ref th{white-space:normal}
+.ref .card{margin-bottom:14px;overflow-x:auto}
+h2{font-size:17px;margin:0 0 10px}
+[hidden]{display:none!important}
+.eq{font-family:"IBM Plex Mono",monospace;font-size:14px;background:light-dark(#f1f4f3,#232b2d);padding:8px 10px;border-radius:6px;margin:6px 0}
+@keyframes fl{0%,100%{transform:scaleX(1)}50%{transform:scaleX(1.04) scaleY(.97)}}
+.flick{transform-origin:150px 200px;transform-box:view-box;animation:fl .35s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.flick{animation:none}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Viscosidade e atomização de combustíveis líquidos</h1>
+    <p>Viscosímetro Saybolt com banho termostático e bancada de queimador por pressão</p>
+  </div>
+  <nav role="tablist">
+    <button role="tab" aria-selected="true" data-tab="vis">Viscosímetro</button>
+    <button role="tab" aria-selected="false" data-tab="ato">Atomização</button>
+    <button role="tab" aria-selected="false" data-tab="ref">Dados de referência</button>
+    <button role="tab" aria-selected="false" data-tab="ens">Ensaios registrados</button>
+  </nav>
+</header>
+<main>
+
+<section id="tab-vis">
+<div class="lab">
+  <div class="card steps"><ol>
+    <li><h3>1. Selecionar o combustível</h3><select id="vFl"></select></li>
+    <li><h3>2. Selecionar o orifício</h3><select id="vOr"><option value="U">Saybolt Universal</option><option value="F">Saybolt Furol</option></select></li>
+    <li><h3>3. Ajustar o banho termostático</h3>
+      <label class="small" for="vT">Temperatura: <span id="vTl" class="mono">40 °C</span></label>
+      <input type="range" id="vT" min="20" max="150" step="5" value="40">
+      <button id="vBanho" style="width:100%">Ligar/ajustar banho</button></li>
+    <li><h3>4. Encher o tubo</h3><button id="vEnch" style="width:100%" disabled>Encher tubo com a amostra</button></li>
+    <li><h3>5. Posicionar o frasco</h3><button id="vFr" style="width:100%" disabled>Frasco receptor de 60 mL</button></li>
+    <li><h3>6. Medir o tempo de escoamento</h3>
+      <button id="vRol" class="fire" style="width:100%" disabled>Retirar rolha e iniciar cronômetro</button>
+      <div class="row small" style="margin-top:6px"><label for="vVel">Velocidade</label><select id="vVel" style="flex:0 0 90px"><option value="1">1×</option><option value="10" selected>10×</option><option value="50">50×</option></select></div></li>
+    <li><h3>7. Densidade na temperatura do ensaio</h3><button id="vDen" style="width:100%" disabled>Ler densímetro</button></li>
+    <li><button id="vLimp" class="go" style="width:100%">Limpar tubo / nova medição</button></li>
+  </ol></div>
+
+  <div class="card">
+    <div class="bench"><svg viewBox="0 0 560 440" role="img" aria-label="Viscosímetro Saybolt com banho termostático">
+      <defs><linearGradient id="st" x1="0" x2="1"><stop offset="0" stop-color="#8d979b"/><stop offset=".45" stop-color="#e8eced"/><stop offset="1" stop-color="#7d878b"/></linearGradient></defs>
+      <rect x="0" y="400" width="560" height="40" style="fill:var(--line)"/>
+      <rect x="150" y="70" width="230" height="250" rx="10" fill="url(#st)"/>
+      <rect x="164" y="86" width="202" height="220" rx="6" fill="#d6ecf7" opacity=".85"/>
+      <rect id="bathLiq" x="164" y="110" width="202" height="196" fill="#c98b2a" opacity=".25"/>
+      <rect x="240" y="60" width="50" height="230" rx="6" style="fill:light-dark(#eef1f2,#2b3335)" stroke="#5f6a6d" stroke-width="3"/>
+      <rect id="tubeLiq" x="243" y="290" width="44" height="0"/>
+      <path d="M255 290 L275 290 L268 318 L262 318 Z" fill="#5f6a6d"/>
+      <rect id="cork" x="258" y="318" width="14" height="16" rx="3" fill="#a0703a"/>
+      <line id="stream" x1="265" y1="320" x2="265" y2="360" stroke-width="3" opacity="0"/>
+      <path d="M232 352 L298 352 L292 398 Q265 406 238 398 Z" fill="none" stroke="#7d878b" stroke-width="3" id="flask" opacity=".25"/>
+      <rect id="flaskLiq" x="240" y="398" width="50" height="0" opacity=".9"/>
+      <line x1="236" y1="372" x2="294" y2="372" stroke="#7d878b" stroke-dasharray="3 3" id="mark60" opacity=".25"/>
+      <text x="300" y="376" font-size="11" style="fill:var(--mute)">60 mL</text>
+      <rect x="70" y="120" width="70" height="40" rx="6" fill="#0b0f10"/><text id="dBath" x="105" y="146" fill="#7cf2b0" font-size="16" font-family="IBM Plex Mono,monospace" text-anchor="middle">--.-</text>
+      <text x="105" y="176" font-size="11" text-anchor="middle" style="fill:var(--mute)">banho (°C)</text>
+      <rect x="390" y="120" width="70" height="40" rx="6" fill="#0b0f10"/><text id="dSam" x="425" y="146" fill="#7cf2b0" font-size="16" font-family="IBM Plex Mono,monospace" text-anchor="middle">--.-</text>
+      <text x="425" y="176" font-size="11" text-anchor="middle" style="fill:var(--mute)">amostra (°C)</text>
+      <rect x="380" y="330" width="130" height="50" rx="8" fill="#0b0f10"/><text id="dClk" x="445" y="362" fill="#7cf2b0" font-size="20" font-family="IBM Plex Mono,monospace" text-anchor="middle">0.0 s</text>
+      <text x="445" y="396" font-size="11" text-anchor="middle" style="fill:var(--mute)">cronômetro</text>
+      <text x="265" y="48" font-size="12" text-anchor="middle" style="fill:var(--mute)">tubo de amostra</text>
+      <text x="200" y="345" font-size="11" text-anchor="end" style="fill:var(--mute)" id="lblOr">orifício Universal</text>
+    </svg></div>
+    <div id="vMsg" class="msg" aria-live="polite">Selecione o combustível, o orifício e ajuste o banho.</div>
+  </div>
+
+  <div class="card mon">
+    <h2>Leituras</h2>
+    <div class="read">
+      <div><span>T amostra (°C)</span><b id="rT">--.-</b></div>
+      <div><span>banho</span><b id="rB" style="font-size:15px">desligado</b></div>
+      <div><span>tempo de escoamento (s)</span><b id="rt">--</b></div>
+      <div><span>densidade (g/cm³)</span><b id="rd">--</b></div>
+    </div>
+    <h2 style="margin-top:14px">Medições desta sessão</h2>
+    <div style="overflow-x:auto"><table><thead><tr><th>Fluido</th><th>Orif.</th><th>T (°C)</th><th>t (s)</th></tr></thead><tbody id="vMini"></tbody></table></div>
+    <p class="small">A tabela completa, com densidade e observações, está na aba Ensaios registrados.</p>
+  </div>
+</div>
+</section>
+
+<section id="tab-ato" hidden>
+<div class="lab">
+  <div class="card steps"><ol>
+    <li><h3>1. Combustível</h3><select id="aFl"></select></li>
+    <li><h3>2. Temperatura de pré-aquecimento</h3>
+      <label class="small" for="aT">T no bico: <span id="aTl" class="mono">25 °C</span></label>
+      <input type="range" id="aT" min="20" max="150" step="5" value="25"></li>
+    <li><h3>3. Pressão de injeção</h3>
+      <label class="small" for="aP">ΔP: <span id="aPl" class="mono">10 bar</span></label>
+      <input type="range" id="aP" min="5" max="25" step="1" value="10"></li>
+    <li><h3>4. Registrar condição</h3><button id="aReg" class="go" style="width:100%">Registrar condição</button></li>
+  </ol>
+  <p class="small">Bico de pressão (pressure-swirl) com número de vazão FN = 1,94 × 10⁻⁷ m². Faixa de viscosidade no bico recomendada pelo fabricante: 2 a 15 cSt.</p></div>
+
+  <div class="card">
+    <div class="bench"><svg viewBox="0 0 560 440" role="img" aria-label="Queimador com bico atomizador, spray e chama">
+      <rect x="0" y="0" width="560" height="440" rx="10" fill="#1a1f22"/>
+      <rect x="20" y="180" width="110" height="40" rx="6" fill="#7d878b"/>
+      <rect x="120" y="190" width="24" height="20" rx="3" fill="#b8c0c3"/>
+      <g id="smoke"></g>
+      <g id="flame"></g>
+      <g id="spray"></g>
+      <g id="drip"></g>
+      <text x="75" y="240" font-size="12" fill="#b8c0c3" text-anchor="middle">bico atomizador</text>
+      <text x="20" y="30" font-size="13" fill="#b8c0c3" id="aLbl">fornalha</text>
+    </svg></div>
+    <div id="aMsg" class="msg" aria-live="polite"></div>
+  </div>
+
+  <div class="card mon">
+    <h2>Condição no bico</h2>
+    <div id="aSt" class="status st-ok">—</div>
+    <div class="read">
+      <div><span>ν (cSt)</span><b id="oNu">--</b></div>
+      <div><span>ρ (kg/m³)</span><b id="oRho">--</b></div>
+      <div><span>μ (mPa·s)</span><b id="oMu">--</b></div>
+      <div><span>vazão (kg/h)</span><b id="oM">--</b></div>
+      <div style="grid-column:1/-1"><span>diâmetro médio de Sauter, SMD (μm)</span><b id="oSmd">--</b></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="tab-ref" class="ref" hidden>
+  <div class="card"><h2>Propriedades dos combustíveis</h2>
+    <table><thead><tr><th>Combustível</th><th>ρ a 20 °C (g/cm³)</th><th>dρ/dT (g/cm³·°C)</th><th>σ (N/m)</th><th>Ponto de fulgor típico (°C)</th></tr></thead><tbody id="tFl"></tbody></table>
+    <p class="small">Densidade na temperatura T: ρ(T) = ρ₂₀ − (dρ/dT)·(T − 20). Valores típicos aproximados, adotados pelo simulador.</p></div>
+  <div class="card"><h2>Conversão do tempo Saybolt em viscosidade cinemática</h2>
+    <p>ν em cSt (mm²/s) e t em segundos:</p>
+    <div class="eq">Universal: ν = 0,226·t − 195/t  (32 ≤ t ≤ 100 s)</div>
+    <div class="eq">Universal: ν = 0,220·t − 135/t  (t &gt; 100 s)</div>
+    <div class="eq">Furol: ν = 2,24·t − 184/t  (25 ≤ t ≤ 40 s)</div>
+    <div class="eq">Furol: ν = 2,16·t − 60/t  (t &gt; 40 s)</div>
+    <p class="small">Use o orifício Universal para tempos entre 32 e 1000 s. Para tempos acima de 1000 s, use o orifício Furol (cerca de 10 vezes mais rápido). Viscosidade dinâmica: μ = ρ·ν.</p></div>
+  <div class="card"><h2>Atomização em bico de pressão</h2>
+    <div class="eq">ṁ = FN·√(ρ_L·ΔP)      FN = 1,94 × 10⁻⁷ m²</div>
+    <div class="eq">SMD = 2,25·σ^0,25·μ^0,25·ṁ^0,25·ΔP^−0,5·ρ_A^−0,25   (SI; ρ_A = 1,2 kg/m³)</div>
+    <p>Correlação de Lefebvre para atomizadores do tipo pressure-swirl. Critério didático adotado no simulador:</p>
+    <table><tbody>
+      <tr><td>Chama estável</td><td>2 ≤ ν ≤ 15 cSt e SMD ≤ 80 μm</td></tr>
+      <tr><td>Atomização marginal (chama longa, amarelada, fuligem)</td><td>ν ≤ 25 cSt e SMD ≤ 100 μm</td></tr>
+      <tr><td>Atomização deficiente (gotejamento, chama instável)</td><td>ν &gt; 25 cSt ou SMD &gt; 100 μm</td></tr>
+      <tr><td>Viscosidade baixa demais</td><td>ν &lt; 2 cSt: vazamento interno e desgaste da bomba</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="tab-ens" class="ref" hidden>
+  <div class="card"><h2>Viscosímetro</h2>
+    <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Combustível</th><th>Orifício</th><th>T amostra (°C)</th><th>t (s)</th><th>ρ (g/cm³)</th><th>Obs.</th></tr></thead><tbody id="tV"></tbody></table></div>
+    <div class="row" style="margin-top:8px"><button id="cpV">Copiar tabela</button></div></div>
+  <div class="card"><h2>Atomização</h2>
+    <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Combustível</th><th>T (°C)</th><th>ΔP (bar)</th><th>ν (cSt)</th><th>ṁ (kg/h)</th><th>SMD (μm)</th><th>Condição</th></tr></thead><tbody id="tA"></tbody></table></div>
+    <div class="row" style="margin-top:8px"><button id="cpA">Copiar tabela</button></div></div>
+</section>
+</main>
+
+<script>
+{
+const FL=[
+ {id:'die',n:'Diesel S10',nu40:3.0,B:2345,r20:0.835,k:0.00070,sig:0.027,fp:60,c:'#e8c86a'},
+ {id:'bio',n:'Biodiesel de soja (B100)',nu40:4.1,B:2500,r20:0.882,k:0.00072,sig:0.030,fp:150,c:'#d9a83a'},
+ {id:'oleo',n:'Óleo de soja in natura',nu40:32,B:2800,r20:0.920,k:0.00064,sig:0.033,fp:300,c:'#c98b2a'},
+ {id:'bpf',n:'Óleo combustível BPF (tipo 1A)',nu40:692.5,B:5553,r20:0.990,k:0.00060,sig:0.034,fp:150,c:'#2b211b'}];
+const $=id=>document.getElementById(id);
+const fmt=(x,d)=>x.toFixed(d).replace('.',',');
+const nu=(f,T)=>f.nu40*Math.exp(f.B*(1/(T+273.15)-1/313.15));
+const rho=(f,T)=>f.r20-f.k*(T-20);
+function tSay(v,o){
+  if(o==='U'){let t=(v+Math.sqrt(v*v+4*0.226*195))/(2*0.226);if(t>100)t=(v+Math.sqrt(v*v+4*0.22*135))/0.44;return t}
+  let t=(v+Math.sqrt(v*v+4*2.24*184))/4.48;if(t>40)t=(v+Math.sqrt(v*v+4*2.16*60))/4.32;return t}
+const opts=FL.map(f=>`<option value="${f.id}">${f.n}</option>`).join('');
+$('vFl').innerHTML=opts;$('aFl').innerHTML=opts;
+$('tFl').innerHTML=FL.map(f=>`<tr><td>${f.n}</td><td>${fmt(f.r20,3)}</td><td>${fmt(f.k,5)}</td><td>${fmt(f.sig,3)}</td><td>${f.fp}</td></tr>`).join('');
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  ['vis','ato','ref','ens'].forEach(t=>$('tab-'+t).hidden=t!==b.dataset.tab);
+  if(b.dataset.tab==='ato')atom();
+}));
+
+/* ---------- viscosímetro ---------- */
+const V={Tb:null,Ts:null,set:null,on:false,full:false,flask:false,run:false,done:false,fl:null,n:0};
+let Vlist=[],Alist=[],tick=null;
+function say(t,err){$('vMsg').textContent=t;$('vMsg').className='msg'+(err?' err':'')}
+const curFl=()=>FL.find(f=>f.id===$('vFl').value);
+function vui(){
+  $('vEnch').disabled=!V.on||V.full||V.run;
+  $('vFr').disabled=!V.full||V.flask||V.run;
+  $('vRol').disabled=!(V.full&&V.flask)||V.run||V.done;
+  $('vDen').disabled=!V.full&&!V.done;
+  $('vFl').disabled=V.full||V.run;$('vOr').disabled=V.run;$('vBanho').disabled=V.run;
+  $('lblOr').textContent='orifício '+($('vOr').value==='U'?'Universal':'Furol');
+  $('flask').setAttribute('opacity',V.flask?1:.25);$('mark60').setAttribute('opacity',V.flask?1:.25);
+}
+$('vT').addEventListener('input',e=>$('vTl').textContent=e.target.value+' °C');
+$('vOr').addEventListener('change',vui);
+$('vFl').addEventListener('change',()=>say('Combustível: '+curFl().n+'.'));
+$('vBanho').onclick=()=>{
+  const T=+$('vT').value,f=curFl();
+  if(T>f.fp-10){say(`Temperatura bloqueada: ${T} °C está próxima ou acima do ponto de fulgor típico do ${f.n} (${f.fp} °C). O viscosímetro Saybolt é aberto; use no máximo ${f.fp-10} °C.`,true);return}
+  if(V.Tb===null){V.Tb=24;V.Ts=24}
+  V.set=T;V.on=true;$('rB').textContent='aquecendo';
+  say(`Banho ajustado para ${T} °C. Aguarde a estabilização da temperatura da amostra antes de medir.`);
+  vui();loopT();
+};
+function loopT(){
+  if(tick)return;
+  tick=setInterval(()=>{
+    const dt=0.25; // min simulados por passo
+    V.Tb+=(V.set-V.Tb)*(1-Math.exp(-dt/1.2));
+    if(V.full)V.Ts+=(V.Tb-V.Ts)*(1-Math.exp(-dt/1.0));else V.Ts=V.Tb;
+    const st=Math.abs(V.Ts-V.set)<0.05&&Math.abs(V.Tb-V.set)<0.05;
+    $('dBath').textContent=V.Tb.toFixed(1);$('dSam').textContent=V.full?V.Ts.toFixed(1):'--.-';
+    $('rT').textContent=V.full?fmt(V.Ts,1):'--.-';$('rB').textContent=st?'estável':'aquecendo';
+    $('bathLiq').setAttribute('opacity',.15+.5*Math.min(1,(V.Tb-20)/130));
+  },120);
+}
+$('vEnch').onclick=()=>{const f=curFl();V.fl=f;V.full=true;V.done=false;V.Ts=24;
+  $('tubeLiq').setAttribute('y',80);$('tubeLiq').setAttribute('height',210);$('tubeLiq').setAttribute('fill',f.c);
+  $('cork').setAttribute('opacity',1);$('flaskLiq').setAttribute('height',0);$('flaskLiq').setAttribute('y',398);
+  say(`Tubo cheio com ${f.n} (excesso recolhido na galeria). Aguarde a amostra atingir ${V.set} °C.`);vui()};
+$('vFr').onclick=()=>{V.flask=true;say('Frasco receptor de 60 mL posicionado sob o orifício.');vui()};
+$('vRol').onclick=()=>{
+  const f=V.fl,o=$('vOr').value,T=V.Ts,est=Math.abs(V.Ts-V.set)<0.05;
+  const v=nu(f,T);let t=tSay(v,o)*(1+(Math.random()-.5)*0.004)+(Math.random()-.5)*0.2;
+  V.run=true;V.T=T;V.t=t;V.o=o;V.est=est;vui();
+  if(!est)say('Atenção: a amostra ainda não estava estabilizada na temperatura do banho. O resultado corresponde à temperatura lida no início.',true);
+  else say('Rolha retirada. Cronômetro em andamento...');
+  $('cork').setAttribute('opacity',0);$('stream').setAttribute('stroke',f.c);$('stream').setAttribute('opacity',1);$('flaskLiq').setAttribute('fill',f.c);
+  const sp=+$('vVel').value,t0=performance.now();
+  const iv=setInterval(()=>{
+    const el=Math.min(t,(performance.now()-t0)/1000*sp);
+    $('dClk').textContent=el.toFixed(1)+' s';const fr=el/t;
+    $('flaskLiq').setAttribute('height',26*fr);$('flaskLiq').setAttribute('y',398-26*fr);
+    $('tubeLiq').setAttribute('y',80+90*fr);$('tubeLiq').setAttribute('height',210-90*fr);
+    if(el>=t){clearInterval(iv);finishV()}
+  },40);
+};
+function finishV(){
+  V.run=false;V.done=true;$('stream').setAttribute('opacity',0);
+  const t=V.t,o=V.o;let obs='ok';
+  if(o==='U'&&t<32)obs='t < 32 s: fora da faixa do orifício Universal';
+  else if(o==='U'&&t>1000)obs='t > 1000 s: use o orifício Furol';
+  else if(o==='F'&&t<25)obs='t < 25 s: use o orifício Universal';
+  if(!V.est)obs=(obs==='ok'?'':obs+'; ')+'amostra não estabilizada';
+  if(obs==='')obs='ok';
+  V.n++;V.dens=null;
+  Vlist.push({n:V.n,f:V.fl.n,o:o==='U'?'Universal':'Furol',T:V.T,t,d:null,obs});
+  $('dClk').textContent=t.toFixed(1)+' s';$('rt').textContent=fmt(t,1);
+  say(`Escoamento de 60 mL concluído: t = ${fmt(t,1)} s a ${fmt(V.T,1)} °C (orifício ${o==='U'?'Universal':'Furol'}).`+(obs!=='ok'?' Observação: '+obs+'.':''),obs!=='ok');
+  renderV();vui();
+}
+$('vDen').onclick=()=>{
+  const T=V.full||V.done?V.Ts:V.set,d=rho(V.fl||curFl(),T)+(Math.random()-.5)*0.0004;
+  $('rd').textContent=fmt(d,4);
+  const last=Vlist[Vlist.length-1];if(V.done&&last&&last.d===null)last.d=d;
+  say(`Densímetro: ρ = ${fmt(d,4)} g/cm³ a ${fmt(T,1)} °C.`);renderV()};
+$('vLimp').onclick=()=>{V.full=false;V.flask=false;V.done=false;V.run=false;
+  $('tubeLiq').setAttribute('height',0);$('flaskLiq').setAttribute('height',0);$('cork').setAttribute('opacity',1);
+  $('dClk').textContent='0.0 s';$('rt').textContent='--';$('rd').textContent='--';
+  say('Tubo limpo e seco. Selecione o combustível e ajuste o banho para a próxima medição.');vui()};
+function renderV(){
+  $('tV').innerHTML=Vlist.map(r=>`<tr><td>${r.n}</td><td>${r.f}</td><td>${r.o}</td><td>${fmt(r.T,1)}</td><td>${fmt(r.t,1)}</td><td>${r.d===null?'–':fmt(r.d,4)}</td><td>${r.obs}</td></tr>`).join('');
+  $('vMini').innerHTML=Vlist.slice(-8).map(r=>`<tr><td>${r.f.split(' (')[0]}</td><td>${r.o[0]}</td><td>${fmt(r.T,1)}</td><td>${fmt(r.t,1)}</td></tr>`).join('');
+}
+
+/* ---------- atomização ---------- */
+const FN=1.94e-7,RA=1.2;
+let A={};
+function atom(){
+  const f=FL.find(x=>x.id===$('aFl').value),T=+$('aT').value,P=+$('aP').value;
+  $('aTl').textContent=T+' °C';$('aPl').textContent=P+' bar';
+  const v=nu(f,T),r=rho(f,T)*1000,mu=v*1e-6*r,dP=P*1e5,m=FN*Math.sqrt(r*dP);
+  const smd=2.25*Math.pow(f.sig,.25)*Math.pow(mu,.25)*Math.pow(m,.25)*Math.pow(dP,-.5)*Math.pow(RA,-.25)*1e6;
+  let st,cl,msg;
+  if(v<2){st='Viscosidade abaixo do mínimo';cl='st-mid';msg='Viscosidade abaixo de 2 cSt: a chama é estável, mas há risco de vazamento interno e desgaste da bomba de combustível por baixa lubricidade.'}
+  else if(v<=15&&smd<=80){st='Chama estável';cl='st-ok';msg='Atomização adequada: gotas finas, chama curta e estável, combustão completa.'}
+  else if(v<=25&&smd<=100){st='Atomização marginal';cl='st-mid';msg='Gotas grandes: chama longa e amarelada, formação de fuligem e aumento de CO. Aumente a temperatura ou a pressão.'}
+  else{st='Atomização deficiente';cl='st-bad';msg='Gotejamento no bico, chama instável e risco de apagamento, coqueamento e fuligem intensa.'}
+  if(T>f.fp-10)msg+=` Atenção: ${T} °C está próximo ou acima do ponto de fulgor típico (${f.fp} °C); o pré-aquecimento exige linha fechada e controle de temperatura.`;
+  A={f,T,P,v,r,mu,m,smd,st};
+  $('oNu').textContent=fmt(v,v<10?2:1);$('oRho').textContent=fmt(r,0);$('oMu').textContent=fmt(mu*1000,2);
+  $('oM').textContent=fmt(m*3600,1);$('oSmd').textContent=fmt(smd,1);
+  $('aSt').textContent=st;$('aSt').className='status '+cl;$('aMsg').textContent=msg;
+  drawFlame(cl,smd);
+}
+function drawFlame(cl,smd){
+  let sp='',n=Math.round(Math.max(18,Math.min(80,4200/smd))),rr=Math.max(1,smd/28);
+  let s=7;const rnd=()=>{s=(s*9301+49297)%233280;return s/233280};
+  for(let i=0;i<n;i++){const x=150+rnd()*110,a=(rnd()-.5)*(x-140)*0.9;sp+=`<circle cx="${x.toFixed(1)}" cy="${(200+a).toFixed(1)}" r="${(rr*(0.6+rnd()*.8)).toFixed(1)}" fill="#d8c79a" opacity=".85"/>`}
+  $('spray').innerHTML=sp;
+  let fl='',sm='',dr='';
+  if(cl==='st-ok'){fl=`<g class="flick"><ellipse cx="300" cy="200" rx="150" ry="58" fill="#ff8a2a" opacity=".55"/><ellipse cx="280" cy="200" rx="115" ry="38" fill="#ffd36b" opacity=".75"/><ellipse cx="230" cy="200" rx="60" ry="20" fill="#6fb6ff" opacity=".7"/></g>`}
+  else if(cl==='st-mid'){fl=`<g class="flick"><path d="M170 200 Q260 120 430 160 Q520 190 540 200 Q520 214 430 240 Q260 280 170 200Z" fill="#ffb43a" opacity=".7"/><ellipse cx="330" cy="200" rx="160" ry="34" fill="#ffe08a" opacity=".6"/></g>`;
+    sm=`<ellipse cx="480" cy="140" rx="70" ry="30" fill="#555" opacity=".45"/><ellipse cx="510" cy="110" rx="50" ry="22" fill="#444" opacity=".35"/>`}
+  else{fl=`<g class="flick"><path d="M230 210 Q300 130 380 170 Q440 150 470 190 Q420 240 330 250 Q260 260 230 210Z" fill="#ff7a1a" opacity=".55"/></g>`;
+    sm=`<ellipse cx="420" cy="120" rx="110" ry="45" fill="#333" opacity=".6"/><ellipse cx="480" cy="80" rx="80" ry="32" fill="#222" opacity=".55"/>`;
+    dr=`<circle cx="146" cy="226" r="4" fill="#d8c79a"/><circle cx="146" cy="246" r="3" fill="#d8c79a"/><circle cx="146" cy="268" r="3.5" fill="#d8c79a"/>`}
+  $('flame').innerHTML=fl;$('smoke').innerHTML=sm;$('drip').innerHTML=dr;
+}
+['aFl','aT','aP'].forEach(id=>$(id).addEventListener('input',atom));
+$('aReg').onclick=()=>{Alist.push({n:Alist.length+1,...A});
+  $('tA').innerHTML=Alist.map(r=>`<tr><td>${r.n}</td><td>${r.f.n}</td><td>${r.T}</td><td>${r.P}</td><td>${fmt(r.v,2)}</td><td>${fmt(r.m*3600,1)}</td><td>${fmt(r.smd,1)}</td><td>${r.st}</td></tr>`).join('');
+  $('aMsg').textContent='Condição registrada na aba Ensaios registrados (#'+Alist.length+').'};
+function copy(txt,btn){const o=btn.textContent;navigator.clipboard.writeText(txt).then(()=>{btn.textContent='Copiado';setTimeout(()=>btn.textContent=o,1500)}).catch(()=>{btn.textContent='Selecione a tabela e copie';setTimeout(()=>btn.textContent=o,2500)})}
+$('cpV').onclick=e=>copy('#;Combustível;Orifício;T (°C);t (s);rho (g/cm3);Obs.\n'+Vlist.map(r=>[r.n,r.f,r.o,fmt(r.T,1),fmt(r.t,1),r.d===null?'':fmt(r.d,4),r.obs].join(';')).join('\n'),e.target);
+$('cpA').onclick=e=>copy('#;Combustível;T (°C);dP (bar);nu (cSt);m (kg/h);SMD (um);Condição\n'+Alist.map(r=>[r.n,r.f.n,r.T,r.P,fmt(r.v,2),fmt(r.m*3600,1),fmt(r.smd,1),r.st].join(';')).join('\n'),e.target);
+vui();atom();
+}
+</script>
+</body>
+</html>
